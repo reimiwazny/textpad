@@ -1,9 +1,15 @@
 import PySimpleGUI as sg
-import os.path 
+import os.path
 
 file_name = 'Untitled.txt'
 diffs = False
 prev_version = ''
+
+
+
+def wipe_doc():
+	window['DOC'].update('')
+	return 'Untitled.txt', False, ''
 
 def save_menu(doc):
 	global file_name, diffs, prev_version
@@ -16,10 +22,9 @@ def save_menu(doc):
 		if event == sg.WIN_CLOSED:
 			break
 		if event == 'Save':
-			print(doc)
 			if values['FNAME'] != '':
-				if values['FNAME'].find('.') != -1:
-					sg.popup('File name cannot contain \'.\'.', title='Caution', font=('any', 15))
+				if values['FNAME'].find('.') != -1 or values['FNAME'].find(' ') != -1:
+					sg.popup('File name cannot contain \'.\' or spaces.', title='Caution', font=('any', 15))
 				else:
 					file_name = values['FNAME'] + '.txt'
 					if os.path.exists(file_name):
@@ -33,6 +38,8 @@ def save_menu(doc):
 							file.write(doc)
 							diffs = False
 							prev_version = doc
+			if not diffs:
+				break
 
 
 
@@ -67,18 +74,43 @@ def open_menu():
 
 
 
-menu_buttons = [	['&File', ['&New', '&Save', 'Save As...', '&Open', '&Close']],
-					['&Customize', ['TEMP']]	]
+menu_buttons = [	['&File', ['&New', '&Save', 'Save As...', '&Open', '&Customize', 'E&xit']]
+						]
 
 main_screen = [	[sg.Menu(menu_buttons, pad=(200,1), font=('any', 10))],
 			[sg.Multiline('', size=(60,30), pad=20, key='DOC', enable_events=True)]	]
 
-window = sg.Window('TextPad - Untitled.txt', main_screen, font=('any', 15))
+window = sg.Window('TextPad - Untitled.txt', main_screen, font=('any', 15), enable_close_attempted_event=True)
 
 while True:
 	event, values = window.read()
-	if event == sg.WIN_CLOSED:
-		break
+	if event in (sg.WINDOW_CLOSE_ATTEMPTED_EVENT, 'Exit'):
+		if diffs:
+			choice, _ = sg.Window('Caution', [[sg.T(f'Do you want to save changes to {file_name}?')], [sg.Button('Save',s=10), sg.Button('Don\'t Save', s=10), sg.Button('Cancel', s=10)]], modal=True, font=('any', 15), element_justification='center').read(close=True)
+			if choice == 'Save':
+				if file_name != 'Untitled.txt':
+					with open(file_name, 'w', encoding='utf-8') as file:
+						file.write(values['DOC'])
+						prev_version = values['DOC']
+						diffs = False
+						window.set_title('TextPad - ' + file_name)
+				else:
+					save_menu(values['DOC'])
+					if values['DOC'] != prev_version:
+						window.set_title('TextPad - ' + file_name +'*')
+						diffs = True
+					else:
+						window.set_title('TextPad - ' + file_name)
+						diffs = False
+				if not diffs:
+					break
+			elif choice == 'Don\'t Save':
+				break
+			else:
+				pass
+		else:
+			break			
+
 	if event == 'DOC':
 		if values['DOC'] != prev_version:
 			window.set_title('TextPad - ' + file_name +'*')
@@ -86,6 +118,31 @@ while True:
 		else:
 			window.set_title('TextPad - ' + file_name)
 			diffs = False
+	if event == 'New':
+		if diffs:
+			choice, _ = sg.Window('Caution', [[sg.T(f'Do you want to save changes to {file_name}?')], [sg.Button('Save',s=10), sg.Button('Don\'t Save', s=10), sg.Button('Cancel', s=10)]], modal=True, font=('any', 15), element_justification='center').read(close=True)
+			if choice == 'Save':
+				if file_name != 'Untitled.txt':
+					with open(file_name, 'w', encoding='utf-8') as file:
+						file.write(values['DOC'])
+						prev_version = values['DOC']
+						diffs = False
+						window.set_title('TextPad - ' + file_name)
+				else:
+					save_menu(values['DOC'])
+					if values['DOC'] != prev_version:
+						window.set_title('TextPad - ' + file_name +'*')
+						diffs = True
+					else:
+						window.set_title('TextPad - ' + file_name)
+						diffs = False
+				if not diffs:
+					file_name, diffs, prev_version = wipe_doc()
+			elif choice == 'Don\'t Save':
+				file_name, diffs, prev_version = wipe_doc()
+			else:
+				pass
+
 	if event == 'Save':
 		if file_name != 'Untitled.txt':
 			with open(file_name, 'w', encoding='utf-8') as file:
